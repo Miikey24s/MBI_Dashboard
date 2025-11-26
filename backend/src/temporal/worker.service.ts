@@ -27,7 +27,7 @@ export class WorkerService implements OnApplicationBootstrap, OnApplicationShutd
       workflowsPath: require.resolve('../workflows/index'),
       activities: {
         ...pingActivities,
-        fetchExternalData: this.salesEtlActivities.fetchExternalData.bind(this.salesEtlActivities),
+        validateData: this.salesEtlActivities.validateData.bind(this.salesEtlActivities),
         transformData: this.salesEtlActivities.transformData.bind(this.salesEtlActivities),
         loadDataToDB: this.salesEtlActivities.loadDataToDB.bind(this.salesEtlActivities),
       },

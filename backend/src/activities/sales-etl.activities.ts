@@ -10,24 +10,26 @@ export class SalesEtlActivities {
     private salesRepository: Repository<SalesRecord>,
   ) {}
 
-  async fetchExternalData(tenantId: string): Promise<any[]> {
-    console.log(`Fetching data for tenant: ${tenantId}`);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    return [
-      { amount: 100, date: new Date().toISOString(), source: 'API_A', tenantId },
-      { amount: 200, date: new Date().toISOString(), source: 'API_B', tenantId },
-    ];
+  async validateData(data: any[]): Promise<any[]> {
+    console.log(`Validating ${data.length} records...`);
+    // Simple validation logic
+    if (!data || data.length === 0) {
+      throw new Error('No data provided');
+    }
+    // Check if required fields exist
+    const validData = data.filter(item => item.amount && item.date);
+    console.log(`Validation complete. ${validData.length} valid records found.`);
+    return validData;
   }
 
   async transformData(rawData: any[]): Promise<SalesRecord[]> {
     console.log('Transforming data...');
     let totalRevenue = 0;
     const records: SalesRecord[] = rawData.map((item) => {
-      totalRevenue += item.amount;
+      totalRevenue += Number(item.amount);
       const record = new SalesRecord();
       record.tenantId = item.tenantId;
-      record.amount = item.amount;
+      record.amount = Number(item.amount);
       record.date = new Date(item.date);
       record.source = item.source;
       return record;

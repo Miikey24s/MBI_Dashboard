@@ -9,8 +9,8 @@
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "nest start",
-    "start:dev": "nest start --watch",
-    "start:debug": "nest start --debug --watch",
+    "start:dev": "npx kill-port 4000 && nest start --watch",
+    "start:debug": "npx kill-port 4000 && nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
@@ -30,10 +30,13 @@
     "@temporalio/common": "^1.13.2",
     "@temporalio/worker": "^1.13.2",
     "@temporalio/workflow": "^1.13.2",
+    "@types/multer": "^2.0.0",
+    "multer": "^2.0.2",
     "mysql2": "^3.15.3",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "typeorm": "^0.3.27"
+    "typeorm": "^0.3.27",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
