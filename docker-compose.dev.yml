@@ -1,0 +1,96 @@
+version: '3.8'
+
+services:
+  # 1. MySQL 8
+  mysql:
+    image: mysql:8
+    container_name: bi_dashboard_mysql
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - bi_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 2. Temporal.io
+  # PostgreSQL for Temporal Persistence
+  temporal-db:
+    image: postgres:13
+    container_name: temporal_postgres
+    environment:
+      - POSTGRES_USER=temporal
+      - POSTGRES_PASSWORD=temporal
+    volumes:
+      - temporal_db_data:/var/lib/postgresql/data
+    networks:
+      - bi_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Temporal Server
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: temporal_server
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=temporal-db
+    depends_on:
+      temporal-db:
+        condition: service_healthy
+    networks:
+      - bi_network
+
+  # Temporal UI
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: temporal_ui
+    ports:
+      - "8080:8080"
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    depends_on:
+      - temporal
+    networks:
+      - bi_network
+
+  # 3. Jaeger (OpenTelemetry)
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    container_name: bi_dashboard_jaeger
+    ports:
+      - "16686:16686" # UI
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "14268:14268" # Thrift HTTP
+      - "14250:14250" # Model proto
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - bi_network
+
+volumes:
+  mysql_data:
+  temporal_db_data:
+
+networks:
+  bi_network:
+    driver: bridge
