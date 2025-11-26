@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { SalesController } from './controllers/sales.controller';
 import { AppService } from './app.service';
 import { TemporalModule } from './temporal/temporal.module';
+import { SalesRecord } from './entities/sales-record.entity';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { TemporalModule } from './temporal/temporal.module';
       }),
       inject: [ConfigService],
     }),
+    TypeOrmModule.forFeature([SalesRecord]),
     TemporalModule,
   ],
   controllers: [AppController, SalesController],
