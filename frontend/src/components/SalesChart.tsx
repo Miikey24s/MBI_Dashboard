@@ -2,6 +2,8 @@
 
 import React from 'react';
 import ReactECharts from 'echarts-for-react';
+import { useTheme } from 'next-themes';
+import { useLanguage } from '@/providers/LanguageProvider';
 
 interface SalesData {
   date: string;
@@ -13,6 +15,9 @@ interface SalesChartProps {
 }
 
 const SalesChart: React.FC<SalesChartProps> = ({ data }) => {
+  const { resolvedTheme } = useTheme();
+  const { t } = useLanguage();
+  
   // Transform data for ECharts
   // Assuming data is sorted or we might want to sort it by date
   const sortedData = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
@@ -21,9 +26,13 @@ const SalesChart: React.FC<SalesChartProps> = ({ data }) => {
   const amounts = sortedData.map(item => item.amount);
 
   const option = {
+    backgroundColor: 'transparent',
     title: {
-      text: 'Sales Over Time',
-      left: 'center'
+      text: t.chartTitle,
+      left: 'center',
+      textStyle: {
+        color: resolvedTheme === 'dark' ? '#fff' : '#333'
+      }
     },
     tooltip: {
       trigger: 'axis'
@@ -31,25 +40,49 @@ const SalesChart: React.FC<SalesChartProps> = ({ data }) => {
     xAxis: {
       type: 'category',
       data: dates,
-      name: 'Date'
+      name: t.chartDate,
+      axisLabel: {
+        color: resolvedTheme === 'dark' ? '#ccc' : '#333'
+      },
+      nameTextStyle: {
+        color: resolvedTheme === 'dark' ? '#ccc' : '#333'
+      }
     },
     yAxis: {
       type: 'value',
-      name: 'Amount ($)'
+      name: t.chartAmount,
+      axisLabel: {
+        color: resolvedTheme === 'dark' ? '#ccc' : '#333'
+      },
+      nameTextStyle: {
+        color: resolvedTheme === 'dark' ? '#ccc' : '#333'
+      },
+      splitLine: {
+        lineStyle: {
+          color: resolvedTheme === 'dark' ? '#444' : '#eee'
+        }
+      }
     },
     series: [
       {
         data: amounts,
         type: 'line',
         smooth: true,
-        areaStyle: {}
+        areaStyle: {},
+        itemStyle: {
+          color: '#3b82f6' // Blue-500
+        }
       }
     ]
   };
 
   return (
-    <div className="w-full p-4 bg-white rounded-lg shadow-md">
-      <ReactECharts option={option} style={{ height: '400px', width: '100%' }} />
+    <div className="w-full p-4 bg-white dark:bg-gray-800 rounded-lg shadow-md transition-colors">
+      <ReactECharts 
+        option={option} 
+        style={{ height: '400px', width: '100%' }} 
+        theme={resolvedTheme === 'dark' ? 'dark' : undefined}
+      />
     </div>
   );
 };

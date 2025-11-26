@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Inject, Get, Query, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Post, Body, Inject, Get, Query, UseInterceptors, UploadedFile, Delete } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { Client } from '@temporalio/client';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -25,6 +25,15 @@ export class SalesController {
     });
   }
 
+  @Delete()
+  async deleteSales(@Query('tenantId') tenantId: string) {
+    if (!tenantId) {
+      return { error: 'tenantId is required' };
+    }
+    await this.salesRepository.delete({ tenantId });
+    return { message: 'All sales records deleted' };
+  }
+
   @Post('upload-excel')
   @UseInterceptors(FileInterceptor('file'))
   async uploadExcel(@UploadedFile() file: Express.Multer.File, @Body('tenantId') tenantId: string) {
@@ -38,17 +47,26 @@ export class SalesController {
     const worksheet = workbook.Sheets[sheetName];
     const rawData = xlsx.utils.sheet_to_json(worksheet);
 
+    if (rawData.length > 0) {
+      console.log('First row of uploaded Excel:', rawData[0]);
+    } else {
+      console.log('Uploaded Excel is empty');
+    }
+
     // Map to strictly typed objects
     const data = rawData.map((item: any) => ({
       tenantId,
-      amount: item.Amount || item.amount,
-      date: item.Date || item.date || new Date().toISOString(),
-      source: item.Source || item.source || 'EXCEL_UPLOAD',
+      amount: item.Amount || item.amount || item['Số tiền'] || item['Doanh thu'] || item['Giá trị'] || 0,
+      date: item.Date || item.date || item['Ngày'] || item['Ngày tháng'] || new Date().toISOString(),
+      source: item.Source || item.source || item['Nguồn'] || item['Kênh'] || 'EXCEL_UPLOAD',
     }));
+
+    // Filter out invalid records (e.g. 0 amount)
+    const validData = data.filter(d => d.amount > 0);
 
     const handle = await this.temporalClient.workflow.start('importSalesWorkflow', {
       taskQueue: 'bi-etl-queue',
-      args: [tenantId, data],
+      args: [tenantId, validData],
       workflowId: `sales-etl-excel-${tenantId}-${Date.now()}`,
     });
 
@@ -56,7 +74,7 @@ export class SalesController {
       message: 'Excel parsed and ETL Workflow started',
       workflowId: handle.workflowId,
       runId: handle.firstExecutionRunId,
-      recordCount: data.length,
+      recordCount: validData.length,
     };
   }
 
