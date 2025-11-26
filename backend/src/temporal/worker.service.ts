@@ -1,13 +1,17 @@
 import { Injectable, OnApplicationBootstrap, OnApplicationShutdown } from '@nestjs/common';
 import { Worker, NativeConnection } from '@temporalio/worker';
 import { ConfigService } from '@nestjs/config';
-import * as activities from '../activities/ping.activity';
+import * as pingActivities from '../activities/ping.activity';
+import { SalesEtlActivities } from '../activities/sales-etl.activities';
 
 @Injectable()
 export class WorkerService implements OnApplicationBootstrap, OnApplicationShutdown {
   private worker: Worker;
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly salesEtlActivities: SalesEtlActivities,
+  ) {}
 
   async onApplicationBootstrap() {
     const address = this.configService.get<string>('TEMPORAL_ADDRESS') || 'localhost:7233';
@@ -20,10 +24,13 @@ export class WorkerService implements OnApplicationBootstrap, OnApplicationShutd
       connection,
       namespace: 'default',
       taskQueue: 'bi-etl-queue',
-      // Point to the compiled JS file in dist/workflows/ping.workflow.js
-      // In development with ts-node, this might need adjustment, but for standard NestJS build:
-      workflowsPath: require.resolve('../workflows/ping.workflow'),
-      activities,
+      workflowsPath: require.resolve('../workflows/index'),
+      activities: {
+        ...pingActivities,
+        fetchExternalData: this.salesEtlActivities.fetchExternalData.bind(this.salesEtlActivities),
+        transformData: this.salesEtlActivities.transformData.bind(this.salesEtlActivities),
+        loadDataToDB: this.salesEtlActivities.loadDataToDB.bind(this.salesEtlActivities),
+      },
     });
 
     this.worker.run();

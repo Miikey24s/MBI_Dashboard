@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
+import { SalesController } from './controllers/sales.controller';
 import { AppService } from './app.service';
 import { TemporalModule } from './temporal/temporal.module';
 
@@ -26,7 +27,7 @@ import { TemporalModule } from './temporal/temporal.module';
     }),
     TemporalModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, SalesController],
   providers: [AppService],
 })
 export class AppModule {}
