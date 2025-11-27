@@ -1,11 +1,12 @@
 import SalesChart from "@/components/SalesChart";
 import ExcelUpload from "@/components/ExcelUpload";
 import DashboardTitle from "@/components/DashboardTitle";
-import { API_BASE_URL, TENANT_ID } from "@/lib/config";
+import { API_BASE_URL } from "@/lib/config";
+import { DEFAULT_TENANT } from "@/providers/TenantProvider";
 
-async function getSalesData() {
+async function getSalesData(tenantId: string) {
   try {
-    const res = await fetch(`${API_BASE_URL}/sales?tenantId=${TENANT_ID}`, {
+    const res = await fetch(`${API_BASE_URL}/sales?tenantId=${tenantId}`, {
       cache: 'no-store',
     });
 
@@ -20,8 +21,14 @@ async function getSalesData() {
   }
 }
 
-export default async function Home() {
-  const salesData = await getSalesData();
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function Home({ searchParams }: PageProps) {
+  const resolvedSearchParams = await searchParams;
+  const tenantId = (resolvedSearchParams?.tenantId as string) || DEFAULT_TENANT;
+  const salesData = await getSalesData(tenantId);
 
   return (
     <div className="flex min-h-screen flex-col items-center p-8 bg-gray-50 dark:bg-gray-900">

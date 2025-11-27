@@ -30,8 +30,14 @@ export class SalesController {
     if (!tenantId) {
       return { error: 'tenantId is required' };
     }
+
+    if (tenantId === 'all') {
+      await this.salesRepository.clear();
+      return { message: 'All sales records for ALL tenants deleted' };
+    }
+
     await this.salesRepository.delete({ tenantId });
-    return { message: 'All sales records deleted' };
+    return { message: `All sales records for ${tenantId} deleted` };
   }
 
   @Post('upload-excel')

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useLanguage } from '@/providers/LanguageProvider';
-import { TENANT_ID } from '@/lib/config';
+import { useTenant } from '@/providers/TenantProvider';
 
 type ExcelUploadProps = {
   initialCount: number;
@@ -25,6 +25,7 @@ const ExcelUpload = ({ initialCount }: ExcelUploadProps) => {
   const [isReady, setIsReady] = useState(false);
   const router = useRouter();
   const { t } = useLanguage();
+  const { tenantId } = useTenant();
 
   useEffect(() => {
     setExistingCount(initialCount);
@@ -55,7 +56,7 @@ const ExcelUpload = ({ initialCount }: ExcelUploadProps) => {
 
   const fetchSalesCount = async () => {
     try {
-      const res = await axios.get(`${API_ROUTES.sales}?tenantId=${TENANT_ID}`);
+      const res = await axios.get(`${API_ROUTES.sales}?tenantId=${tenantId}`);
       return Array.isArray(res.data) ? res.data.length : existingCount;
     } catch (error) {
       console.error('Failed to fetch sales count', error);
@@ -100,7 +101,7 @@ const ExcelUpload = ({ initialCount }: ExcelUploadProps) => {
     
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('tenantId', TENANT_ID);
+    formData.append('tenantId', tenantId);
 
     try {
       const response = await axios.post(API_ROUTES.upload, formData);
@@ -147,15 +148,18 @@ const ExcelUpload = ({ initialCount }: ExcelUploadProps) => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm(t.deleteConfirm)) return;
+  const handleDelete = async (deleteAll: boolean = false) => {
+    const confirmMsg = deleteAll ? t.deleteAllConfirm : t.deleteConfirm;
+    if (!confirm(confirmMsg)) return;
 
     setDeleting(true);
     setStatus({ type: 'info', message: t.deleting });
     toast.info(t.deleting);
     try {
       console.log('Deleting data...');
-      await axios.delete(`${API_ROUTES.sales}?tenantId=${TENANT_ID}`);
+      const targetTenant = deleteAll ? 'all' : tenantId;
+      await axios.delete(`${API_ROUTES.sales}?tenantId=${targetTenant}`);
+      
       toast.success(t.deleteSuccess);
       setStatus({ type: 'success', message: t.deleteSuccess });
       setExistingCount(0);
@@ -176,17 +180,30 @@ const ExcelUpload = ({ initialCount }: ExcelUploadProps) => {
     <div className="w-full p-6 bg-white dark:bg-gray-800 rounded-lg shadow-md mb-8 transition-colors">
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{t.uploadTitle}</h2>
-        <button
-          onClick={handleDelete}
-          disabled={deleting || uploading || !isReady}
-          className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            deleting || uploading || !isReady
-              ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
-              : 'text-red-600 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:text-red-100 dark:hover:bg-red-800'
-          }`}
-        >
-          {deleting ? t.deleting : t.delete}
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => handleDelete(false)}
+            disabled={deleting || uploading || !isReady}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              deleting || uploading || !isReady
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
+                : 'text-red-600 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:text-red-100 dark:hover:bg-red-800'
+            }`}
+          >
+            {deleting ? t.deleting : t.delete}
+          </button>
+          <button
+            onClick={() => handleDelete(true)}
+            disabled={deleting || uploading || !isReady}
+            className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              deleting || uploading || !isReady
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
+                : 'text-white bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-600'
+            }`}
+          >
+            {t.deleteAllTenants}
+          </button>
+        </div>
       </div>
       
       {/* Status Message */}

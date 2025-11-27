@@ -4,6 +4,7 @@ import React from 'react';
 import ReactECharts from 'echarts-for-react';
 import { useTheme } from 'next-themes';
 import { useLanguage } from '@/providers/LanguageProvider';
+import { formatVND } from '@/lib/utils';
 
 interface SalesData {
   date: string;
@@ -35,7 +36,12 @@ const SalesChart: React.FC<SalesChartProps> = ({ data }) => {
       }
     },
     tooltip: {
-      trigger: 'axis'
+      trigger: 'axis',
+      formatter: (params: any) => {
+        const date = params[0].axisValue;
+        const value = params[0].data;
+        return `${date}<br/>${t.chartAmount}: ${formatVND(value)}`;
+      }
     },
     xAxis: {
       type: 'category',
@@ -52,7 +58,8 @@ const SalesChart: React.FC<SalesChartProps> = ({ data }) => {
       type: 'value',
       name: t.chartAmount,
       axisLabel: {
-        color: resolvedTheme === 'dark' ? '#ccc' : '#333'
+        color: resolvedTheme === 'dark' ? '#ccc' : '#333',
+        formatter: (value: number) => formatVND(value)
       },
       nameTextStyle: {
         color: resolvedTheme === 'dark' ? '#ccc' : '#333'
