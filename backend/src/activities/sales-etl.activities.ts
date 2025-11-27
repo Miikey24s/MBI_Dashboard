@@ -1,14 +1,40 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Between } from 'typeorm';
 import { SalesRecord } from '../entities/sales-record.entity';
+import { EtlJob, EtlStatus } from '../entities/etl-job.entity';
+import { TelegramService } from '../services/telegram.service';
 
 @Injectable()
 export class SalesEtlActivities {
   constructor(
     @InjectRepository(SalesRecord)
     private salesRepository: Repository<SalesRecord>,
+    @InjectRepository(EtlJob)
+    private etlJobRepository: Repository<EtlJob>,
+    private telegramService: TelegramService,
   ) {}
+
+  async getDailySales(tenantId: string): Promise<number> {
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const result = await this.salesRepository
+      .createQueryBuilder('sales')
+      .select('SUM(sales.amount)', 'total')
+      .where('sales.tenantId = :tenantId', { tenantId })
+      .andWhere('sales.date BETWEEN :start AND :end', { start: startOfDay, end: endOfDay })
+      .getRawOne();
+
+    return Number(result.total) || 0;
+  }
+
+  async sendTelegramAlert(message: string): Promise<void> {
+    await this.telegramService.sendMessage(message);
+  }
 
   async validateData(data: any[]): Promise<any[]> {
     console.log(`Validating ${data.length} records...`);
@@ -38,9 +64,21 @@ export class SalesEtlActivities {
     return records;
   }
 
-  async loadDataToDB(records: SalesRecord[]): Promise<void> {
-    console.log(`Loading ${records.length} records to DB...`);
-    await this.salesRepository.save(records);
+  async loadDataToDB(records: SalesRecord[], jobId: string): Promise<void> {
+    console.log(`Loading ${records.length} records to DB for Job ${jobId}...`);
+    
+    // Assign Job ID to records
+    const recordsWithJob = records.map(r => {
+      r.etlJobId = jobId;
+      return r;
+    });
+
+    await this.salesRepository.save(recordsWithJob);
     console.log('Data loaded successfully.');
+  }
+
+  async updateJobStatus(jobId: string, status: EtlStatus): Promise<void> {
+    console.log(`Updating Job ${jobId} status to ${status}`);
+    await this.etlJobRepository.update(jobId, { status });
   }
 }

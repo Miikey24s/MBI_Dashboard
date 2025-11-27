@@ -31,6 +31,7 @@
     "@temporalio/worker": "^1.13.2",
     "@temporalio/workflow": "^1.13.2",
     "@types/multer": "^2.0.0",
+    "axios": "^1.13.2",
     "multer": "^2.0.2",
     "mysql2": "^3.15.3",
     "reflect-metadata": "^0.2.2",

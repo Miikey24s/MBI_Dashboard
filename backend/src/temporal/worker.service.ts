@@ -30,6 +30,9 @@ export class WorkerService implements OnApplicationBootstrap, OnApplicationShutd
         validateData: this.salesEtlActivities.validateData.bind(this.salesEtlActivities),
         transformData: this.salesEtlActivities.transformData.bind(this.salesEtlActivities),
         loadDataToDB: this.salesEtlActivities.loadDataToDB.bind(this.salesEtlActivities),
+        updateJobStatus: this.salesEtlActivities.updateJobStatus.bind(this.salesEtlActivities),
+        getDailySales: this.salesEtlActivities.getDailySales.bind(this.salesEtlActivities),
+        sendTelegramAlert: this.salesEtlActivities.sendTelegramAlert.bind(this.salesEtlActivities),
       },
     });
 

@@ -6,6 +6,7 @@ import { SalesController } from './controllers/sales.controller';
 import { AppService } from './app.service';
 import { TemporalModule } from './temporal/temporal.module';
 import { SalesRecord } from './entities/sales-record.entity';
+import { EtlJob } from './entities/etl-job.entity';
 
 @Module({
   imports: [
@@ -26,7 +27,7 @@ import { SalesRecord } from './entities/sales-record.entity';
       }),
       inject: [ConfigService],
     }),
-    TypeOrmModule.forFeature([SalesRecord]),
+    TypeOrmModule.forFeature([SalesRecord, EtlJob]),
     TemporalModule,
   ],
   controllers: [AppController, SalesController],
