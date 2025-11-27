@@ -28,7 +28,7 @@ export default async function Home() {
       <main className="w-full max-w-5xl flex flex-col gap-8 pt-16">
         <DashboardTitle />
         
-        <ExcelUpload />
+        <ExcelUpload initialCount={salesData?.length ?? 0} />
 
         {salesData ? (
           <SalesChart data={salesData} />

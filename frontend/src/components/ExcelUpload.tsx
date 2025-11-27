@@ -1,22 +1,44 @@
 'use client';
 
-import { ChangeEvent, useState } from 'react';
+import { ChangeEvent, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useLanguage } from '@/providers/LanguageProvider';
-import { API_BASE_URL, TENANT_ID } from '@/lib/config';
+import { TENANT_ID } from '@/lib/config';
 
-const ExcelUpload = () => {
+type ExcelUploadProps = {
+  initialCount: number;
+};
+
+const API_ROUTES = {
+  upload: '/api/sales/upload-excel',
+  sales: '/api/sales',
+} as const;
+
+const ExcelUpload = ({ initialCount }: ExcelUploadProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+  const [existingCount, setExistingCount] = useState(initialCount);
+  const [isReady, setIsReady] = useState(false);
   const router = useRouter();
   const { t } = useLanguage();
 
+  useEffect(() => {
+    setExistingCount(initialCount);
+  }, [initialCount]);
+
+  useEffect(() => {
+    setIsReady(true);
+  }, []);
+
   const getErrorMessage = (error: unknown, fallback: string) => {
     if (axios.isAxiosError(error)) {
+      if (error.code === 'ERR_NETWORK') {
+        return t.backendError;
+      }
       const responseMessage =
         typeof error.response?.data === 'object' && error.response?.data !== null
           ? (error.response.data as { message?: string }).message
@@ -29,11 +51,39 @@ const ExcelUpload = () => {
     return fallback;
   };
 
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+  const fetchSalesCount = async () => {
+    try {
+      const res = await axios.get(`${API_ROUTES.sales}?tenantId=${TENANT_ID}`);
+      return Array.isArray(res.data) ? res.data.length : existingCount;
+    } catch (error) {
+      console.error('Failed to fetch sales count', error);
+      return existingCount;
+    }
+  };
+
+  const waitForNewRecords = async (expectedIncrease: number) => {
+    const target = existingCount + expectedIncrease;
+    const maxAttempts = 20; // ~10s
+    const intervalMs = 500;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const count = await fetchSalesCount();
+      if (count >= target) {
+        setExistingCount(count);
+        return true;
+      }
+      await sleep(intervalMs);
+    }
+
+    return false;
+  };
+
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       setFile(e.target.files[0]);
       setStatus(null);
-      toast.info(`${t.uploadTitle}: ${e.target.files[0].name}`);
     }
   };
 
@@ -53,22 +103,19 @@ const ExcelUpload = () => {
     formData.append('tenantId', TENANT_ID);
 
     try {
-      const response = await axios.post(`${API_BASE_URL}/sales/upload-excel`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
+      const response = await axios.post(API_ROUTES.upload, formData);
 
       const { recordCount, workflowId } = response.data;
+      const newRecords = Number(recordCount) || 0;
 
-      if (recordCount === 0) {
+      if (newRecords === 0) {
         setStatus({ 
           type: 'error', 
           message: t.noRecords 
         });
         toast.error(t.noRecords);
       } else {
-        const successMsg = `${t.success} (ID: ${workflowId}). Processing ${recordCount} records...`;
+        const successMsg = `${t.success} (ID: ${workflowId}). Processing ${newRecords} records...`;
         setStatus({ 
           type: 'success', 
           message: successMsg
@@ -79,10 +126,13 @@ const ExcelUpload = () => {
         const fileInput = document.getElementById('file-upload') as HTMLInputElement;
         if (fileInput) fileInput.value = '';
         
-        // Wait a bit before refreshing to let the user see the message
-        setTimeout(() => {
-          router.refresh();
-        }, 2000);
+        toast.info(t.processingData);
+        const processed = await waitForNewRecords(newRecords);
+        if (!processed) {
+          setStatus({ type: 'info', message: t.processingTimeout });
+          toast.info(t.processingTimeout);
+        }
+        router.refresh();
       }
     } catch (error: unknown) {
       console.error('Upload failed:', error);
@@ -105,9 +155,10 @@ const ExcelUpload = () => {
     toast.info(t.deleting);
     try {
       console.log('Deleting data...');
-      await axios.delete(`${API_BASE_URL}/sales?tenantId=${TENANT_ID}`);
+      await axios.delete(`${API_ROUTES.sales}?tenantId=${TENANT_ID}`);
       toast.success(t.deleteSuccess);
       setStatus({ type: 'success', message: t.deleteSuccess });
+      setExistingCount(0);
       
       // Refresh the page to update the chart
       router.refresh();
@@ -127,9 +178,9 @@ const ExcelUpload = () => {
         <h2 className="text-xl font-semibold text-gray-800 dark:text-white">{t.uploadTitle}</h2>
         <button
           onClick={handleDelete}
-          disabled={deleting || uploading}
+          disabled={deleting || uploading || !isReady}
           className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-            deleting || uploading
+            deleting || uploading || !isReady
               ? 'bg-gray-300 text-gray-500 cursor-not-allowed dark:bg-gray-700 dark:text-gray-400'
               : 'text-red-600 bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:text-red-100 dark:hover:bg-red-800'
           }`}
@@ -166,14 +217,14 @@ const ExcelUpload = () => {
         />
         <button
           onClick={handleUpload}
-          disabled={uploading || !file || deleting}
+          disabled={uploading || !file || deleting || !isReady}
           className={`px-6 py-2 rounded-full font-semibold text-white transition-colors ${
-            uploading || !file || deleting
+            uploading || !file || deleting || !isReady
               ? 'bg-gray-400 cursor-not-allowed dark:bg-gray-600'
               : 'bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'
           }`}
         >
-          {uploading ? t.uploading : t.upload}
+          {isReady ? (uploading ? t.uploading : t.upload) : t.initializing}
         </button>
       </div>
       <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
