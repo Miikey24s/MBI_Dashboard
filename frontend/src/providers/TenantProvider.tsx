@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 interface TenantContextType {
@@ -14,7 +14,7 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 export const AVAILABLE_TENANTS = ['tenant-01', 'tenant-02', 'tenant-03'];
 export const DEFAULT_TENANT = 'tenant-01';
 
-export function TenantProvider({ children }: { children: React.ReactNode }) {
+function TenantProviderInner({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [tenantId, setTenantIdState] = useState(DEFAULT_TENANT);
@@ -40,6 +40,18 @@ export function TenantProvider({ children }: { children: React.ReactNode }) {
     <TenantContext.Provider value={{ tenantId, setTenantId, availableTenants: AVAILABLE_TENANTS }}>
       {children}
     </TenantContext.Provider>
+  );
+}
+
+export function TenantProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={
+      <TenantContext.Provider value={{ tenantId: DEFAULT_TENANT, setTenantId: () => {}, availableTenants: AVAILABLE_TENANTS }}>
+        {children}
+      </TenantContext.Provider>
+    }>
+      <TenantProviderInner>{children}</TenantProviderInner>
+    </Suspense>
   );
 }
 

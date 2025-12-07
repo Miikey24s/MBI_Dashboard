@@ -1,9 +1,11 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Tenant } from './tenant.entity';
+import { Department } from './department.entity';
 import { EtlJob } from './etl-job.entity';
 
 @Entity()
 @Index(['tenantId', 'date'])
+@Index(['departmentId'])
 export class SalesRecord {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -23,6 +25,13 @@ export class SalesRecord {
 
   @Column({ nullable: true })
   tenantId: string;
+
+  @ManyToOne(() => Department, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'departmentId' })
+  department: Department;
+
+  @Column({ nullable: true })
+  departmentId: string;
 
   @ManyToOne(() => EtlJob, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'etlJobId' })
