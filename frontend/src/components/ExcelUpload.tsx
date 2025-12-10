@@ -20,6 +20,7 @@ type Department = {
 type ExcelUploadProps = {
   selectedDepartmentId?: string;
   departments?: Department[];
+  onDataChange?: () => void;
 };
 
 type UploadStatus = 'idle' | 'uploading' | 'processing' | 'success' | 'error';
@@ -51,7 +52,7 @@ const API_ROUTES = {
   departments: '/api/departments',
 } as const;
 
-const ExcelUpload = ({ selectedDepartmentId, departments = [] }: ExcelUploadProps) => {
+const ExcelUpload = ({ selectedDepartmentId, departments = [], onDataChange }: ExcelUploadProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>('idle');
   const [progress, setProgress] = useState(0);
@@ -185,10 +186,12 @@ const ExcelUpload = ({ selectedDepartmentId, departments = [] }: ExcelUploadProp
       // Reload history
       loadUploadHistory();
 
-      setTimeout(() => {
-        router.refresh();
-        window.location.reload();
-      }, 1500);
+      // Trigger parent to refresh data
+      if (onDataChange) {
+        setTimeout(() => {
+          onDataChange();
+        }, 1000);
+      }
     } catch (error) {
       setUploadStatus('error');
       toast.error(getErrorMessage(error, t.checkConsole));
@@ -218,10 +221,11 @@ const ExcelUpload = ({ selectedDepartmentId, departments = [] }: ExcelUploadProp
       loadUploadHistory();
       if (isAdmin) loadTrash();
       // Refresh dashboard để ẩn dữ liệu đã xóa
-      setTimeout(() => {
-        router.refresh();
-        window.location.reload();
-      }, 500);
+      if (onDataChange) {
+        setTimeout(() => {
+          onDataChange();
+        }, 500);
+      }
     } catch (error) {
       toast.error(getErrorMessage(error, t.deleteError));
     }
@@ -262,10 +266,11 @@ const ExcelUpload = ({ selectedDepartmentId, departments = [] }: ExcelUploadProp
       loadUploadHistory();
       if (isAdmin) loadTrash();
       // Refresh dashboard
-      setTimeout(() => {
-        router.refresh();
-        window.location.reload();
-      }, 500);
+      if (onDataChange) {
+        setTimeout(() => {
+          onDataChange();
+        }, 500);
+      }
     } catch (error) {
       toast.error(getErrorMessage(error, t.deleteError));
     } finally {
@@ -285,10 +290,11 @@ const ExcelUpload = ({ selectedDepartmentId, departments = [] }: ExcelUploadProp
       loadUploadHistory();
       loadTrash();
       // Refresh dashboard để hiển thị lại dữ liệu
-      setTimeout(() => {
-        router.refresh();
-        window.location.reload();
-      }, 500);
+      if (onDataChange) {
+        setTimeout(() => {
+          onDataChange();
+        }, 500);
+      }
     } catch (error) {
       toast.error(getErrorMessage(error, t.deleteError));
     }

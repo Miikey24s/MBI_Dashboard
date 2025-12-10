@@ -1,0 +1,39 @@
+version: '3.5'
+
+services:
+  mysql:
+    image: mysql:8.0.40
+    environment:
+      MYSQL_ROOT_PASSWORD: nam
+      MYSQL_DATABASE: nam
+      MYSQL_USER: nam
+      MYSQL_PASSWORD: nam
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - mbi-network
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    environment:
+      - DB=mysql
+      - MYSQL_SEEDS=mysql
+      - MYSQL_USER=nam
+      - MYSQL_PWD=nam
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development.yaml
+    ports:
+      - "7233:7233" # gRPC
+      - "8233:8233" # UI
+    depends_on:
+      - mysql
+    networks:
+      - mbi-network
+
+volumes:
+  mysql_data:
+
+networks:
+  mbi-network:
+    driver: bridge

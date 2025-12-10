@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { seedDatabase } from './seed';
+import { createSuperAdmin } from './create-super-admin';
 import { DataSource } from 'typeorm';
 
 async function bootstrap() {
@@ -16,8 +17,9 @@ async function bootstrap() {
   try {
     const dataSource = app.get(DataSource);
     await seedDatabase(dataSource);
+    await createSuperAdmin(dataSource);
   } catch (error) {
-    console.error('❌ Seed database failed:', error);
+    console.error('❌ Database initialization failed:', error);
   }
 
   await app.listen(process.env.PORT ?? 4000);

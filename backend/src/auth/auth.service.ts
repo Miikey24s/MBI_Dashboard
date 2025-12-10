@@ -52,8 +52,10 @@ export class AuthService {
     });
     const roles = userRoles.map((ur) => ur.role.name);
 
-    // Get tenant info
-    const tenant = await this.tenantRepo.findOne({ where: { id: user.tenantId } });
+    // Get tenant info (Super Admin has no tenant)
+    const tenant = user.tenantId 
+      ? await this.tenantRepo.findOne({ where: { id: user.tenantId } })
+      : null;
 
     const payload = {
       sub: user.id,
@@ -165,7 +167,9 @@ export class AuthService {
     });
     const roles = userRoles.map((ur) => ur.role.name);
 
-    const tenant = await this.tenantRepo.findOne({ where: { id: user.tenantId } });
+    const tenant = user.tenantId
+      ? await this.tenantRepo.findOne({ where: { id: user.tenantId } })
+      : null;
 
     // Get permissions
     const permissions = await this.getUserPermissions(userId);

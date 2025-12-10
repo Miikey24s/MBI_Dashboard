@@ -28,12 +28,12 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
-  @ManyToOne(() => Tenant, (tenant) => tenant.users, { onDelete: 'CASCADE' })
+  @ManyToOne(() => Tenant, (tenant) => tenant.users, { nullable: true, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenantId' })
   tenant: Tenant;
 
   @Column({ nullable: true })
-  tenantId: string;
+  tenantId: string | null;
 
   @ManyToOne(() => Department, (department) => department.users, {
     nullable: true,

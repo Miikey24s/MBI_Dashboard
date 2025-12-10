@@ -25,10 +25,10 @@ export function Header() {
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
+            <Link href="/" className="flex items-center gap-3">
               <div className="w-8 h-8 bg-blue-600 rounded-lg" />
               <span className="text-lg font-bold">MBI Dashboard</span>
-            </div>
+            </Link>
           </div>
         </div>
       </header>
@@ -40,7 +40,7 @@ export function Header() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="flex items-center justify-center w-9 h-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-lg shadow-md">
               <BarChart3 className="w-5 h-5 text-white" />
             </div>
@@ -52,7 +52,7 @@ export function Header() {
                 </span>
               )}
             </div>
-          </div>
+          </Link>
 
           {/* Actions */}
           <div className="flex items-center gap-2">

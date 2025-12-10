@@ -21,15 +21,23 @@ export class DashboardController {
   async getOverview(
     @Query('tenantId') tenantId: string,
     @Query('departmentId') departmentId?: string,
+    @Query('fileId') fileId?: string,
   ) {
     if (!tenantId) return { error: 'tenantId is required' };
 
     // Lọc bỏ sales records từ các job đã bị soft delete
     let baseWhere = 's.tenantId = :tenantId AND (s.etlJobId IS NULL OR job.deletedAt IS NULL)';
+    const params: any = { tenantId };
+    
     if (departmentId) {
       baseWhere += ' AND s.departmentId = :departmentId';
+      params.departmentId = departmentId;
     }
-    const params = departmentId ? { tenantId, departmentId } : { tenantId };
+    
+    if (fileId) {
+      baseWhere += ' AND s.etlJobId = :fileId';
+      params.fileId = fileId;
+    }
 
     const [totalRevenue, recordCount, etlJobs] = await Promise.all([
       this.salesRepo
@@ -92,6 +100,7 @@ export class DashboardController {
   async getSalesByDate(
     @Query('tenantId') tenantId: string,
     @Query('departmentId') departmentId?: string,
+    @Query('fileId') fileId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('limit') limit?: string,
@@ -110,6 +119,7 @@ export class DashboardController {
       .orderBy('date', 'ASC');
 
     if (departmentId) query.andWhere('s.departmentId = :departmentId', { departmentId });
+    if (fileId) query.andWhere('s.etlJobId = :fileId', { fileId });
     if (startDate) query.andWhere('s.date >= :startDate', { startDate });
     if (endDate) query.andWhere('s.date <= :endDate', { endDate });
     if (limit) query.limit(parseInt(limit));
@@ -127,6 +137,7 @@ export class DashboardController {
   async getSalesBySource(
     @Query('tenantId') tenantId: string,
     @Query('departmentId') departmentId?: string,
+    @Query('fileId') fileId?: string,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
@@ -144,6 +155,7 @@ export class DashboardController {
       .orderBy('total', 'DESC');
 
     if (departmentId) query.andWhere('s.departmentId = :departmentId', { departmentId });
+    if (fileId) query.andWhere('s.etlJobId = :fileId', { fileId });
     if (startDate) query.andWhere('s.date >= :startDate', { startDate });
     if (endDate) query.andWhere('s.date <= :endDate', { endDate });
 
@@ -161,6 +173,7 @@ export class DashboardController {
   async getSalesByMonth(
     @Query('tenantId') tenantId: string,
     @Query('departmentId') departmentId?: string,
+    @Query('fileId') fileId?: string,
     @Query('year') year?: string,
   ) {
     if (!tenantId) return { error: 'tenantId is required' };
@@ -180,6 +193,7 @@ export class DashboardController {
       .orderBy('month', 'ASC');
 
     if (departmentId) query.andWhere('s.departmentId = :departmentId', { departmentId });
+    if (fileId) query.andWhere('s.etlJobId = :fileId', { fileId });
 
     const results = await query.getRawMany();
 

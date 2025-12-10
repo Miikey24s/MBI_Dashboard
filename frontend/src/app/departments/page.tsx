@@ -41,21 +41,33 @@ export default function DepartmentsPage() {
   }, [isAuthenticated, isLoading, router]);
 
   useEffect(() => {
-    if (isAuthenticated && user?.roles?.includes('Admin')) {
-      fetchDepartments();
+    if (isAuthenticated) {
+      console.log('User roles:', user?.roles);
+      if (user?.roles?.includes('Admin')) {
+        fetchDepartments();
+      }
     }
   }, [isAuthenticated, user]);
 
   const fetchDepartments = async () => {
     try {
       const token = getToken();
-      const res = await fetch(`${API_BASE_URL}/departments`, {
-        headers: { Authorization: `Bearer ${token}` },
+      const url = user?.tenantId 
+        ? `${API_BASE_URL}/departments?tenantId=${user.tenantId}`
+        : `${API_BASE_URL}/departments`;
+      
+      const res = await fetch(url, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (res.ok) {
         setDepartments(await res.json());
+      } else {
+        const error = await res.json();
+        console.error('Fetch departments error:', error);
+        toast.error(error.message || t.error);
       }
-    } catch {
+    } catch (err) {
+      console.error('Fetch departments error:', err);
       toast.error(t.error);
     } finally {
       setLoading(false);
@@ -89,6 +101,8 @@ export default function DepartmentsPage() {
         ? `${API_BASE_URL}/departments/${editingDept.id}`
         : `${API_BASE_URL}/departments`;
       
+      console.log('Creating department:', { url, formData, token: token ? 'exists' : 'missing' });
+      
       const res = await fetch(url, {
         method: editingDept ? 'PUT' : 'POST',
         headers: {
@@ -98,15 +112,19 @@ export default function DepartmentsPage() {
         body: JSON.stringify(formData),
       });
 
+      console.log('Response status:', res.status);
+
       if (res.ok) {
         toast.success(t.success);
         setShowModal(false);
         fetchDepartments();
       } else {
         const error = await res.json();
+        console.error('Error creating department:', error);
         toast.error(error.message || t.error);
       }
-    } catch {
+    } catch (err) {
+      console.error('Exception creating department:', err);
       toast.error(t.error);
     } finally {
       setSubmitting(false);

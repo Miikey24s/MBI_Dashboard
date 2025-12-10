@@ -44,13 +44,25 @@ export class DepartmentsController {
 
   @Get()
   @Public()
-  async getDepartments(@Query('tenantId') tenantId: string) {
-    if (!tenantId) {
+  async getDepartments(
+    @Query('tenantId') tenantId?: string,
+    @CurrentUser() currentUser?: CurrentUserData,
+  ) {
+    const activeTenantId = tenantId || currentUser?.tenantId;
+    
+    // Super Admin can see all departments if no tenantId specified
+    const isSuperAdmin = currentUser?.roles?.includes('Super Admin');
+    
+    if (!activeTenantId && !isSuperAdmin) {
       return [];
     }
 
+    const whereClause = activeTenantId 
+      ? { tenantId: activeTenantId }
+      : {}; // Super Admin sees all departments
+    
     const departments = await this.deptRepo.find({
-      where: { tenantId },
+      where: whereClause,
       order: { name: 'ASC' },
     });
 

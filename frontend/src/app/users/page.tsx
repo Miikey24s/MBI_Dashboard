@@ -37,7 +37,7 @@ interface DepartmentData {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export default function UsersPage() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, refreshProfile } = useAuth();
   const { t } = useLanguage();
   const router = useRouter();
   const [users, setUsers] = useState<UserData[]>([]);
@@ -63,6 +63,7 @@ export default function UsersPage() {
       fetchRoles();
       fetchDepartments();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, user]);
 
   const fetchUsers = async () => {
@@ -98,9 +99,11 @@ export default function UsersPage() {
   };
 
   const fetchDepartments = async () => {
+    if (!user?.tenantId) return;
+    
     try {
       const token = getToken();
-      const res = await fetch(`${API_BASE_URL}/departments`, {
+      const res = await fetch(`${API_BASE_URL}/departments?tenantId=${user.tenantId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -172,9 +175,13 @@ export default function UsersPage() {
 
   const openEditModal = (u: UserData) => {
     setEditingUser(u);
+    
+    // Find current role ID
+    const currentRole = roles.find(r => u.roles.includes(r.name));
+    
     setEditUser({
       fullName: u.fullName,
-      roleId: '', // Will need to fetch current role
+      roleId: currentRole?.id || (roles.length > 0 ? roles[0].id : ''),
       departmentId: u.departmentId || '',
     });
     setShowEditModal(true);
@@ -201,6 +208,12 @@ export default function UsersPage() {
         setShowEditModal(false);
         setEditingUser(null);
         fetchUsers();
+        
+        // Refresh profile if editing current user or if role changed
+        if (editingUser.id === user?.id || editUser.roleId) {
+          await refreshProfile();
+          setTimeout(() => window.location.reload(), 500);
+        }
       } else {
         const error = await res.json();
         toast.error(error.message || t.error);
@@ -283,7 +296,18 @@ export default function UsersPage() {
               </p>
             </div>
             <button
-              onClick={() => setShowAddModal(true)}
+              onClick={() => {
+                // Set default role to first role (usually Viewer)
+                const defaultRole = roles.find(r => r.name === 'Viewer') || roles[0];
+                setNewUser({ 
+                  email: '', 
+                  password: '', 
+                  fullName: '', 
+                  roleId: defaultRole?.id || '', 
+                  departmentId: '' 
+                });
+                setShowAddModal(true);
+              }}
               className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -345,6 +369,8 @@ export default function UsersPage() {
                           <td className="px-6 py-4 text-right">
                             {u.id === user?.id ? (
                               <span className="text-xs text-gray-400 italic">{t.currentUser}</span>
+                            ) : u.roles.includes('Admin') ? (
+                              <span className="text-xs text-gray-400 italic">Admin</span>
                             ) : (
                               <div className="flex items-center justify-end gap-1">
                                 <button onClick={() => openEditModal(u)} className="p-2 text-gray-500 hover:text-blue-600" title={t.edit}>
@@ -391,21 +417,20 @@ export default function UsersPage() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-100 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed" />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.department}</label>
-                <select value={editUser.departmentId} onChange={(e) => setEditUser({ ...editUser, departmentId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                  <option value="">{t.selectDepartment}</option>
-                  {departments.map((dept) => (
-                    <option key={dept.id} value={dept.id}>{dept.name} {dept.code ? `(${dept.code})` : ''}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.role}</label>
                 <select value={editUser.roleId} onChange={(e) => setEditUser({ ...editUser, roleId: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                  <option value="">{t.selectRole}</option>
                   {roles.map((role) => (<option key={role.id} value={role.id}>{role.name} - {role.description}</option>))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.department}</label>
+                <select value={editUser.departmentId} onChange={(e) => setEditUser({ ...editUser, departmentId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                  <option value="">{t.notAssigned}</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>{dept.name} {dept.code ? `(${dept.code})` : ''}</option>
+                  ))}
                 </select>
               </div>
               <div className="flex gap-3 pt-4">
@@ -446,23 +471,23 @@ export default function UsersPage() {
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white" />
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.role}</label>
+                <select value={newUser.roleId} onChange={(e) => setNewUser({ ...newUser, roleId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+                  {roles.map((role) => (<option key={role.id} value={role.id}>{role.name} - {role.description}</option>))}
+                </select>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.department}</label>
                 <select value={newUser.departmentId} onChange={(e) => setNewUser({ ...newUser, departmentId: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                  <option value="">{t.selectDepartment}</option>
+                  <option value="">{t.notAssigned}</option>
                   {departments.map((dept) => (
                     <option key={dept.id} value={dept.id}>{dept.name} {dept.code ? `(${dept.code})` : ''}</option>
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{t.role}</label>
-                <select value={newUser.roleId} onChange={(e) => setNewUser({ ...newUser, roleId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
-                  <option value="">{t.selectRole}</option>
-                  {roles.map((role) => (<option key={role.id} value={role.id}>{role.name} - {role.description}</option>))}
-                </select>
-              </div>
+
               <div className="flex gap-3 pt-4">
                 <button type="button" onClick={() => setShowAddModal(false)}
                   className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">

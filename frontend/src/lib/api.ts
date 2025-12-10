@@ -45,17 +45,19 @@ export interface EtlJob {
 }
 
 // Dashboard APIs
-export async function fetchOverview(tenantId: string, departmentId?: string): Promise<OverviewData> {
+export async function fetchOverview(tenantId: string, departmentId?: string, fileId?: string): Promise<OverviewData> {
   let url = `${API_BASE_URL}/dashboard/overview?tenantId=${tenantId}`;
   if (departmentId) url += `&departmentId=${departmentId}`;
+  if (fileId) url += `&fileId=${fileId}`;
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to fetch overview');
   return res.json();
 }
 
-export async function fetchSalesByDate(tenantId: string, departmentId?: string, startDate?: string, endDate?: string): Promise<SalesByDate[]> {
+export async function fetchSalesByDate(tenantId: string, departmentId?: string, fileId?: string, startDate?: string, endDate?: string): Promise<SalesByDate[]> {
   let url = `${API_BASE_URL}/dashboard/sales-by-date?tenantId=${tenantId}`;
   if (departmentId) url += `&departmentId=${departmentId}`;
+  if (fileId) url += `&fileId=${fileId}`;
   if (startDate) url += `&startDate=${startDate}`;
   if (endDate) url += `&endDate=${endDate}`;
   
@@ -64,17 +66,19 @@ export async function fetchSalesByDate(tenantId: string, departmentId?: string, 
   return res.json();
 }
 
-export async function fetchSalesBySource(tenantId: string, departmentId?: string): Promise<SalesBySource[]> {
+export async function fetchSalesBySource(tenantId: string, departmentId?: string, fileId?: string): Promise<SalesBySource[]> {
   let url = `${API_BASE_URL}/dashboard/sales-by-source?tenantId=${tenantId}`;
   if (departmentId) url += `&departmentId=${departmentId}`;
+  if (fileId) url += `&fileId=${fileId}`;
   const res = await fetch(url, { cache: 'no-store' });
   if (!res.ok) throw new Error('Failed to fetch sales by source');
   return res.json();
 }
 
-export async function fetchSalesByMonth(tenantId: string, departmentId?: string, year?: number): Promise<SalesByMonth[]> {
+export async function fetchSalesByMonth(tenantId: string, departmentId?: string, fileId?: string, year?: number): Promise<SalesByMonth[]> {
   let url = `${API_BASE_URL}/dashboard/sales-by-month?tenantId=${tenantId}`;
   if (departmentId) url += `&departmentId=${departmentId}`;
+  if (fileId) url += `&fileId=${fileId}`;
   if (year) url += `&year=${year}`;
   
   const res = await fetch(url, { cache: 'no-store' });

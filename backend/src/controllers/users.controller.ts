@@ -24,11 +24,16 @@ export class UsersController {
   ) {}
 
   @Get()
-  @Roles('Admin', 'Manager')
+  @Roles('Admin', 'Manager', 'Super Admin')
   async getUsers(@CurrentUser() currentUser: CurrentUserData) {
+    // Super Admin can see all users, others see only their tenant
+    const whereClause = currentUser.tenantId 
+      ? { tenantId: currentUser.tenantId }
+      : {}; // Super Admin sees all
+    
     const users = await this.userRepo.find({
-      where: { tenantId: currentUser.tenantId },
-      select: ['id', 'email', 'fullName', 'isActive', 'createdAt', 'departmentId'],
+      where: whereClause,
+      select: ['id', 'email', 'fullName', 'isActive', 'createdAt', 'departmentId', 'tenantId'],
       order: { createdAt: 'DESC' },
     });
 
@@ -61,15 +66,21 @@ export class UsersController {
   }
 
   @Get('roles')
+  @Roles('Admin', 'Manager', 'Super Admin')
   async getRoles(@CurrentUser() currentUser: CurrentUserData) {
+    // Super Admin can see all roles, others see only their tenant roles
+    const whereClause = currentUser.tenantId 
+      ? { tenantId: currentUser.tenantId }
+      : {}; // Super Admin sees all roles
+    
     return this.roleRepo.find({
-      where: { tenantId: currentUser.tenantId },
+      where: whereClause,
       select: ['id', 'name', 'description'],
     });
   }
 
   @Post()
-  @Roles('Admin')
+  @Roles('Admin', 'Super Admin')
   async createUser(@Body() dto: CreateUserDto, @CurrentUser() currentUser: CurrentUserData) {
     // Check if email exists
     const existing = await this.userRepo.findOne({ where: { email: dto.email } });
@@ -114,18 +125,45 @@ export class UsersController {
   }
 
   @Put(':id')
-  @Roles('Admin')
+  @Roles('Admin', 'Super Admin')
   async updateUser(
     @Param('id') id: string,
     @Body() dto: UpdateUserDto,
     @CurrentUser() currentUser: CurrentUserData,
   ) {
-    const user = await this.userRepo.findOne({
-      where: { id, tenantId: currentUser.tenantId },
-    });
+    // Super Admin can edit any user, others can only edit users in their tenant
+    const whereClause = currentUser.tenantId 
+      ? { id, tenantId: currentUser.tenantId }
+      : { id }; // Super Admin can edit any user
+    
+    const user = await this.userRepo.findOne({ where: whereClause });
 
     if (!user) {
       throw new ForbiddenException('User không tồn tại');
+    }
+
+    // Prevent editing yourself
+    if (id === currentUser.userId) {
+      throw new ForbiddenException('Không thể chỉnh sửa chính mình');
+    }
+
+    // Check if target user is Admin or Super Admin
+    const targetUserRoles = await this.userRoleRepo.find({
+      where: { userId: id },
+      relations: ['role'],
+    });
+    const isTargetAdmin = targetUserRoles.some((ur) => ur.role.name === 'Admin');
+    const isTargetSuperAdmin = targetUserRoles.some((ur) => ur.role.name === 'Super Admin');
+    const isCurrentSuperAdmin = currentUser.roles?.includes('Super Admin');
+
+    // Prevent editing Super Admin (only Super Admin can edit Super Admin)
+    if (isTargetSuperAdmin && !isCurrentSuperAdmin) {
+      throw new ForbiddenException('Không thể chỉnh sửa Super Admin');
+    }
+
+    // Prevent Admin from editing another Admin (only if trying to change role)
+    if (isTargetAdmin && !isCurrentSuperAdmin && id !== currentUser.userId && dto.roleId) {
+      throw new ForbiddenException('Không thể thay đổi quyền của Admin khác');
     }
 
     // Prevent deactivating yourself
@@ -153,15 +191,37 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles('Admin')
+  @Roles('Admin', 'Super Admin')
   async deleteUser(@Param('id') id: string, @CurrentUser() currentUser: CurrentUserData) {
     if (id === currentUser.userId) {
       throw new ForbiddenException('Không thể xóa chính mình');
     }
 
-    const user = await this.userRepo.findOne({
-      where: { id, tenantId: currentUser.tenantId },
+    // Check if target user is Admin or Super Admin
+    const targetUserRoles = await this.userRoleRepo.find({
+      where: { userId: id },
+      relations: ['role'],
     });
+    const isTargetAdmin = targetUserRoles.some((ur) => ur.role.name === 'Admin');
+    const isTargetSuperAdmin = targetUserRoles.some((ur) => ur.role.name === 'Super Admin');
+    const isCurrentSuperAdmin = currentUser.roles?.includes('Super Admin');
+
+    // Prevent deleting Super Admin (only Super Admin can delete Super Admin)
+    if (isTargetSuperAdmin && !isCurrentSuperAdmin) {
+      throw new ForbiddenException('Không thể xóa Super Admin');
+    }
+
+    // Prevent Admin from deleting another Admin
+    if (isTargetAdmin && !isCurrentSuperAdmin) {
+      throw new ForbiddenException('Không thể xóa Admin khác');
+    }
+
+    // Super Admin can delete any user, others can only delete users in their tenant
+    const whereClause = currentUser.tenantId 
+      ? { id, tenantId: currentUser.tenantId }
+      : { id }; // Super Admin can delete any user
+    
+    const user = await this.userRepo.findOne({ where: whereClause });
 
     if (!user) {
       throw new ForbiddenException('User không tồn tại');

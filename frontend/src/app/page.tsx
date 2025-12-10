@@ -27,7 +27,7 @@ import {
   SalesRecord,
   EtlJob,
 } from '@/lib/api';
-import { Loader2, Building2 } from 'lucide-react';
+import { Loader2, Building2, FileText } from 'lucide-react';
 
 type Department = {
   id: string;
@@ -39,11 +39,15 @@ type Department = {
 function DashboardDataLoader({
   tenantId,
   departmentId,
+  fileId,
   errorTitle,
+  refreshKey,
 }: {
   tenantId: string;
   departmentId?: string;
+  fileId?: string;
   errorTitle: string;
+  refreshKey?: number;
 }) {
   const [data, setData] = useState<{
     overview: OverviewData;
@@ -64,10 +68,10 @@ function DashboardDataLoader({
       try {
         const [overview, salesByDate, salesBySource, salesByMonth, recentSales, etlJobs] =
           await Promise.all([
-            fetchOverview(tenantId, departmentId),
-            fetchSalesByDate(tenantId, departmentId),
-            fetchSalesBySource(tenantId, departmentId),
-            fetchSalesByMonth(tenantId, departmentId),
+            fetchOverview(tenantId, departmentId, fileId),
+            fetchSalesByDate(tenantId, departmentId, fileId),
+            fetchSalesBySource(tenantId, departmentId, fileId),
+            fetchSalesByMonth(tenantId, departmentId, fileId),
             fetchRecentSales(tenantId, departmentId, 10),
             fetchEtlJobs(tenantId, departmentId, 5),
           ]);
@@ -82,7 +86,7 @@ function DashboardDataLoader({
     };
 
     loadData();
-  }, [tenantId, departmentId]);
+  }, [tenantId, departmentId, fileId, refreshKey]);
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -123,9 +127,28 @@ export default function HomePage() {
   const router = useRouter();
   const [departments, setDepartments] = useState<Department[]>([]);
   const [selectedDepartmentId, setSelectedDepartmentId] = useState<string>('');
+  const [selectedFileId, setSelectedFileId] = useState<string>('');
+  const [uploadHistory, setUploadHistory] = useState<any[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const activeTenantId = user?.tenantId || tenantId;
   const isAdmin = user?.roles?.includes('Admin');
+
+  const handleDataRefresh = () => {
+    setRefreshKey((prev) => prev + 1);
+    loadUploadHistory();
+  };
+
+  const loadUploadHistory = async () => {
+    try {
+      let url = `/api/sales/upload-history?tenantId=${activeTenantId}`;
+      if (selectedDepartmentId) url += `&departmentId=${selectedDepartmentId}`;
+      const response = await axios.get(url);
+      setUploadHistory(response.data);
+    } catch (error) {
+      console.error('Failed to load upload history:', error);
+    }
+  };
 
 
   useEffect(() => {
@@ -146,6 +169,13 @@ export default function HomePage() {
         .catch((err) => console.error('Failed to load departments:', err));
     }
   }, [activeTenantId]);
+
+  // Load upload history
+  useEffect(() => {
+    if (activeTenantId) {
+      loadUploadHistory();
+    }
+  }, [activeTenantId, selectedDepartmentId]);
 
   if (isLoading) {
     return (
@@ -173,25 +203,67 @@ export default function HomePage() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-20">
           <DashboardHeader />
 
-          {/* Department Filter for Admin */}
-          {isAdmin && (
-            <div className="mb-4 flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
-              <Building2 className="w-5 h-5 text-gray-400" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">{t.filterByDepartment || 'Lọc theo phòng ban'}:</span>
-              <select
-                value={selectedDepartmentId}
-                onChange={(e) => setSelectedDepartmentId(e.target.value)}
-                className="flex-1 max-w-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
-              >
-                <option value="">{t.allDepartments || 'Tất cả phòng ban'}</option>
-                {departments.map((dept) => (
-                  <option key={dept.id} value={dept.id}>
-                    {dept.name} ({dept.code})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className="mb-6">
+            <ExcelUpload
+              selectedDepartmentId={activeDepartmentId}
+              departments={departments}
+              onDataChange={handleDataRefresh}
+            />
+          </div>
+
+          {/* Filters */}
+          <div className="mb-4 space-y-3">
+            {/* Department Filter for Admin */}
+            {isAdmin && (
+              <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                <Building2 className="w-5 h-5 text-gray-400" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">{t.filterByDepartment}:</span>
+                <select
+                  value={selectedDepartmentId}
+                  onChange={(e) => {
+                    setSelectedDepartmentId(e.target.value);
+                    setSelectedFileId(''); // Reset file filter
+                  }}
+                  className="flex-1 max-w-xs px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
+                >
+                  <option value="">{t.allDepartments}</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={dept.id}>
+                      {dept.name} ({dept.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* File Filter */}
+            {uploadHistory.length > 0 && (
+              <div className="flex items-center gap-3 p-3 bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                <FileText className="w-5 h-5 text-gray-400" />
+                <span className="text-sm text-gray-600 dark:text-gray-400">{t.filterByFile}:</span>
+                <select
+                  value={selectedFileId}
+                  onChange={(e) => setSelectedFileId(e.target.value)}
+                  className="flex-1 max-w-md px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
+                >
+                  <option value="">{t.allFiles}</option>
+                  {uploadHistory.map((file) => (
+                    <option key={file.id} value={file.id}>
+                      {file.fileName} - {new Date(file.createdAt).toLocaleDateString()} ({file.recordCount} {t.records})
+                    </option>
+                  ))}
+                </select>
+                {selectedFileId && (
+                  <button
+                    onClick={() => setSelectedFileId('')}
+                    className="px-3 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  >
+                    ✕ {t.clear}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Show current department for non-admin */}
           {!isAdmin && user?.departmentName && (
@@ -203,17 +275,12 @@ export default function HomePage() {
             </div>
           )}
 
-          <div className="mb-6">
-            <ExcelUpload
-              selectedDepartmentId={activeDepartmentId}
-              departments={departments}
-            />
-          </div>
-
           <DashboardDataLoader
             tenantId={activeTenantId}
             departmentId={activeDepartmentId}
+            fileId={selectedFileId}
             errorTitle={t.cannotLoadData}
+            refreshKey={refreshKey}
           />
         </main>
       </div>
