@@ -1,28 +1,31 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { seedDatabase } from './seed';
-import { createSuperAdmin } from './create-super-admin';
-import { DataSource } from 'typeorm';
+import { json } from 'express';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Tăng giới hạn body size cho file upload (50MB)
+  app.use(json({ limit: '50mb' }));
+
+  // Bật validation cho DTO
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // Loại bỏ các field không có trong DTO
+      transform: true, // Tự động chuyển đổi kiểu dữ liệu
+      forbidNonWhitelisted: true, // Báo lỗi nếu có field lạ
+    }),
+  );
+
+  app.setGlobalPrefix('api', { exclude: [''] });
   
+  // Enable CORS for frontend
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://127.0.0.1:3000'],
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: 'http://localhost:3000',
     credentials: true,
   });
-
-  // Seed database on startup
-  try {
-    const dataSource = app.get(DataSource);
-    await seedDatabase(dataSource);
-    await createSuperAdmin(dataSource);
-  } catch (error) {
-    console.error('❌ Database initialization failed:', error);
-  }
-
-  await app.listen(process.env.PORT ?? 4000);
-  console.log(`🚀 Backend running on http://localhost:${process.env.PORT ?? 4000}`);
+  
+  await app.listen(process.env.PORT ?? 3001);
 }
 bootstrap();
