@@ -1,0 +1,83 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: bi-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: bi_dashboard
+      MYSQL_USER: bi_user
+      MYSQL_PASSWORD: bi_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bi-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: bi-backend
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USERNAME=bi_user
+      - DB_PASSWORD=bi_password
+      - DB_DATABASE=bi_dashboard
+      - JWT_SECRET=your-super-secret-jwt-key-change-in-production
+      - JWT_EXPIRES_IN=24h
+      - FRONTEND_URL=http://localhost:3000
+    ports:
+      - "3001:3001"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - bi-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: bi-frontend
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:3001
+      - API_URL_SERVER=http://backend:3001
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    networks:
+      - bi-network
+
+  adminer:
+    image: adminer
+    container_name: bi-adminer
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    networks:
+      - bi-network
+
+volumes:
+  mysql_data:
+
+networks:
+  bi-network:
+    driver: bridge
